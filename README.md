@@ -1,4 +1,4 @@
-ERC-20 TOKEN LAUNCH CONTRACT
+# ERC-20 TOKEN LAUNCH CONTRACT
 ---------------------------------------
 
 A secure and production-ready ERC-20 token built with Solidity, OpenZeppelin, and Hardhat.
