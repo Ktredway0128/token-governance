@@ -1,27 +1,31 @@
-# ERC-20 TOKEN LAUNCH CONTRACT
+# ERC-20 TOKEN VESTING CONTRACT
 
-A secure and production-ready ERC-20 token built with Solidity, OpenZeppelin, and Hardhat.
+![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
+![Solidity](https://img.shields.io/badge/Solidity-0.8.19-blue)
+![Hardhat](https://img.shields.io/badge/Built%20with-Hardhat-yellow)
 
-This project demonstrates the full lifecycle of a token launch including:
+A secure and production-ready ERC-20 token vesting contract built with Solidity, OpenZeppelin, and Hardhat.
+
+This project demonstrates the full lifecycle of a token vesting system including:
 
 Smart contract development
 Automated testing
 Deployment scripting
 Security best practices
 
-The repository represents the foundation of an ERC-20 Token Launch package, which can be expanded with additional Web3 infrastructure such as crowdsales, vesting contracts, staking systems, and DAO governance.
+This repository represents the second package in a Web3 infrastructure suite, designed to work alongside the ERC-20 Token Launch contract to provide investor and team token vesting capabilities.
 
 
-## PROJECT GOALS 
+## PROJECT GOALS
 
-The purpose of this project is to demonstrate how a modern ERC-20 token should be designed for real-world use.
+The purpose of this project is to demonstrate how a modern token vesting contract should be designed for real-world use.
 
-The contract includes common features required by token launches:
+The contract includes common features required by token vesting systems:
 
-Controlled token minting
-Maximum supply limits
-Emergency pause capability
-Token burning
+Cliff and linear vesting schedules
+Multiple schedules per beneficiary
+Admin controlled revocation
+Fair beneficiary protection on revocation
 Role-based administrative permissions
 Event logging for transparency
 
@@ -30,57 +34,63 @@ These patterns are widely used in production Web3 applications.
 
 ## SMART CONTRACT FEATURES
 
-FIXED MAXIMUM SUPPLY
+VESTING SCHEDULES
 
-The contract enforces a hard cap on the total supply using OpenZeppelin's ERC20Capped.
-This prevents tokens from being minted beyond the maximum supply.
+Admins can create individual vesting schedules for any beneficiary.
+Each schedule defines a total amount, start time, cliff period, and vesting duration.
+Every schedule creation emits a VestingScheduleCreated event.
 
-INITIAL TOKEN MINT
+CLIFF PERIOD
 
-When the contract is deployed, an initial supply of tokens is minted directly to the deployer.
+Tokens are locked until the cliff period has passed.
+No tokens can be released before the cliff regardless of elapsed time.
+
+LINEAR VESTING
+
+After the cliff, tokens are released linearly over the remaining duration.
+Beneficiaries can claim their available tokens at any time after the cliff.
+
+MULTIPLE SCHEDULES PER BENEFICIARY
+
+A single address can hold multiple independent vesting schedules.
+Each schedule is tracked by a unique ID derived from the holder address and index.
+
+REVOCATION
+
+Admins can revoke a vesting schedule at any time.
+Unvested tokens are returned to the contract upon revocation.
+Tokens that vested before revocation remain claimable by the beneficiary.
 
 ROLE-BASED PERMISSIONS
 
-Administrative actions are protected using OpenZeppelin’s AccessControl.
+Administrative actions are protected using OpenZeppelin's AccessControl.
 Roles include:
 
-ROLE DESCRIPTION
+ROLE                DESCRIPTION
 
-DEFAULT_ADMIN_ROLE	Can manage roles
+DEFAULT_ADMIN_ROLE  Can manage roles
+ADMIN_ROLE          Can create schedules, revoke, and withdraw
 
-MINTER_ROLE	Allowed to mint tokens
+ADMIN ROLE PROTECTION
 
-PAUSER_ROLE	Allowed to pause/unpause transfers
+The contract prevents the admin from accidentally renouncing the DEFAULT_ADMIN_ROLE.
+This ensures the contract can never be permanently locked without an administrator.
 
-MINTING
+TOKEN WITHDRAWAL
 
-Authorized accounts with the MINTER_ROLE can mint new tokens up to the cap.
-Every mint emits a TokensMinted event.
-
-BURNING
-
-Any token holder can permanently destroy tokens from their own balance using the burn function.
-Each burn emits a TokensBurned event.
-
-EMERGENCY PAUSE
-
-Authorized accounts with the PAUSER_ROLE can pause all token transfers.
-This is useful if a vulnerability or emergency occurs.
-Transfers resume when the contract is unpaused.
+Admins can withdraw any tokens not locked in an active vesting schedule.
+This allows recovery of excess or unallocated tokens.
 
 EVENT TRACKING
 
 The contract emits events for important actions:
 
-TokensMinted
-
-TokensBurned
-
-TokenPaused
-
-TokenUnpaused
+VestingScheduleCreated
+TokensReleased
+VestingRevoked
 
 Events make it easier for applications, dashboards, and explorers to monitor contract activity.
+
 
 ## TECHNOLOGY STACK
 
@@ -100,55 +110,53 @@ Alchemy – Ethereum RPC provider
 
 Sepolia Test Network – Deployment environment
 
+
 ## PROJECT STRUCTURE
 
 contracts/
-    SampleToken.sol
+    TokenVesting.sol
 
 scripts/
-    deploy.js
+    deploy-token.js
+    deploy-vesting.js
 
 test/
-    SampleToken.test.js
+    TokenVesting.test.js
 
 hardhat.config.js
 .env
 
 CONTRACTS
 
-Contains the ERC-20 smart contract implementation.
+Contains the vesting smart contract implementation.
 
 SCRIPTS
 
-Contains the deployment script used to deploy the token.
+Contains deployment scripts for both the token and vesting contracts.
 
 TESTS
 
 Contains automated tests verifying all major contract behaviors.
 
+
 ## SMART CONTRACT ARCHITECTURE
 
-The SampleToken contract extends several OpenZeppelin modules:
-
-ERC20
-
-ERC20Burnable
-
-ERC20Capped
-
-ERC20Pausable
+The TokenVesting contract extends the following OpenZeppelin modules:
 
 AccessControl
+ReentrancyGuard
+SafeERC20
 
 This modular architecture provides strong security and reusable functionality while keeping the contract easy to audit.
+
 
 ## INSTALLATION
 
 ### CLONE THE REPOSITORY:
 
-git clone https://github.com/Ktredway0128/erc20-token-launch
+git clone https://github.com/Ktredway0128/erc20-token-vesting
 
-cd erc20-token-launch
+cd erc20-token-vesting
 
 ### INSTALL DEPENDENCIES:
 
@@ -158,25 +166,22 @@ npm install
 
 npx hardhat compile
 
-### RUN THE TEST SUITE :
+### RUN THE TEST SUITE:
 
 npx hardhat test
 
 ### THE TESTS VALIDATE:
 
-Token initialization
+Vesting schedule creation
+Cliff enforcement
+Linear token release
+Full duration release
+Admin revocation
+Beneficiary protection after revocation
+Token withdrawal
+Edge cases and access control
+renounceRole protection
 
-Transfers
-
-Mint permissions
-
-Pause / unpause functionality
-
-Token burning
-
-Supply cap enforcement
-
-Role-based access control
 
 ## ENVIRONMENT SETUP
 
@@ -191,88 +196,73 @@ These values allow Hardhat to:
 Connect to the Sepolia network
 Sign transactions using the deployer's wallet
 
+
 ## DEPLOYMENT
 
-To deploy the contract to Sepolia:
+This contract requires the ERC-20 token to be deployed first.
+The token address is passed into the vesting contract constructor.
 
-npx hardhat run scripts/deploy.js --network sepolia
+### STEP 1 - Deploy the token:
+
+npx hardhat run scripts/deploy-token.js --network sepolia
+
+### STEP 2 - Copy the token address from the console output and paste it into deploy-vesting.js
+
+### STEP 3 - Deploy the vesting contract:
+
+npx hardhat run scripts/deploy-vesting.js --network sepolia
 
 The deployment script performs the following steps:
 
 Retrieves the deployer wallet
-
 Creates the contract factory
-
-Deploys the token with constructor parameters
-
+Deploys the vesting contract with the token address
 Waits for confirmation
-
 Outputs the deployed contract address
-
-## EXAMPLE TOKEN CONFIGURATION
-
-Example parameters used in deployment:
-
-Token Name: Sample Token
-
-Token Symbol: STK
-
-Maximum Supply: 1,000,000 tokens
-
-Initial Supply: 100,000 tokens
 
 
 ## SECURITY PRACTICES
 
 The contract uses well-established patterns from OpenZeppelin including:
 
-Supply caps
-
+ReentrancyGuard on all token release functions
+SafeERC20 for safe token transfers
 Role-based permissions
-
-Emergency pause mechanisms
-
+Fair beneficiary protection on revocation
 Audited contract libraries
 
 These are common practices used in production smart contracts.
 
+
 ## EXAMPLE USE CASES
 
-This ERC-20 architecture can support many types of projects:
+This vesting architecture can support many types of projects:
 
-DAO governance tokens
+Employee token compensation
+Investor token lockups
+Founder vesting schedules
+Advisor token grants
+DAO contributor rewards
 
-Startup utility tokens
-
-Game economies
-
-Loyalty rewards
-
-DeFi protocol tokens
 
 ## FUTURE ENHANCEMENTS
 
-This project serves as the base layer for a larger Web3 infrastructure package.
+This project serves as the second layer in a larger Web3 infrastructure package.
 
 Possible upgrades include:
 
-Token crowdsale contracts
-
-Investor vesting schedules
-
+Airdrop contract integration
 Staking rewards
-
 Governance (DAO voting)
-
 Treasury management
-
 Upgradeable proxy contracts
+
 
 ## AUTHOR
 
 Kyle Tredway
 
-Smart Contract Developer/Token Launch Specialist
+Smart Contract Developer / Token Launch Specialist
 
 License
 

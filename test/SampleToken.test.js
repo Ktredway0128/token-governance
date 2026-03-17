@@ -90,6 +90,15 @@ describe("SampleToken", function () {
         `AccessControl: account ${addr1.address.toLowerCase()} is missing role ${minterRole}`
       );
     });
+
+    // @notice Verifies that minting to the zero address reverts with a clear error message
+    it("Cannot mint to zero address", async function () {
+      const mintAmount = ethers.utils.parseUnits("1000", 18);
+    
+      await expect(
+        token.connect(owner).mint(ethers.constants.AddressZero, mintAmount)
+      ).to.be.revertedWith("Cannot mint to zero address");
+    });
   });
 
   describe("Pausing", function () {
@@ -183,6 +192,41 @@ describe("SampleToken", function () {
       await expect(token.connect(addr1).burn(overBurnAmount))
         .to.be.revertedWith("ERC20: burn amount exceeds balance");
     });
+
+    // @notice Verifies that burnFrom emits the TokensBurned event and correctly reduces balance
+    it("burnFrom emits TokensBurned event", async function () {
+      const transferAmount = ethers.utils.parseUnits("5000", 18);
+      const burnAmount = ethers.utils.parseUnits("2000", 18);
+    
+      // Give addr1 some tokens
+      await token.connect(owner).transfer(addr1.address, transferAmount);
+    
+      // addr1 approves owner to spend on their behalf
+      await token.connect(addr1).approve(owner.address, burnAmount);
+    
+      // Owner burns from addr1's balance
+      await expect(token.connect(owner).burnFrom(addr1.address, burnAmount))
+        .to.emit(token, "TokensBurned")
+        .withArgs(addr1.address, burnAmount);
+    
+      const balance = await token.balanceOf(addr1.address);
+      expect(balance.toString()).to.equal(
+        ethers.utils.parseUnits("3000", 18).toString() // 5000 - 2000
+      );
+    });
+    
+    // @notice Verifies that burnFrom reverts when no allowance has been approved
+    it("burnFrom fails without allowance", async function () {
+      const burnAmount = ethers.utils.parseUnits("1000", 18);
+      const transferAmount = ethers.utils.parseUnits("5000", 18);
+    
+      await token.connect(owner).transfer(addr1.address, transferAmount);
+    
+      // No approve() called — should revert
+      await expect(
+        token.connect(owner).burnFrom(addr1.address, burnAmount)
+      ).to.be.revertedWith("ERC20: insufficient allowance");
+    });
   });
 
   describe("Cap", function () {
@@ -223,5 +267,29 @@ describe("SampleToken", function () {
   
     });
   
+  });
+
+  // @notice Tests that the renounceRole override correctly blocks and allows renouncing based on role type
+  describe("renounceRole Protection", function () {
+      
+    // @notice Verifies that the admin cannot renounce DEFAULT_ADMIN_ROLE, preventing permanent lockout
+    it("Admin cannot renounce DEFAULT_ADMIN_ROLE", async function () {
+      const adminRole = await token.DEFAULT_ADMIN_ROLE();
+  
+      await expect(
+        token.connect(owner).renounceRole(adminRole, owner.address)
+      ).to.be.revertedWith("Cannot renounce admin role");
+    });
+  
+      // @notice Verifies that non-admin roles like MINTER_ROLE can still be renounced freely
+    it("MINTER_ROLE can still be renounced", async function () {
+      const minterRole = await token.MINTER_ROLE();
+  
+      await expect(
+        token.connect(owner).renounceRole(minterRole, owner.address)
+      ).to.not.be.reverted;
+  
+      expect(await token.hasRole(minterRole, owner.address)).to.equal(false);
+    });
   });
 });

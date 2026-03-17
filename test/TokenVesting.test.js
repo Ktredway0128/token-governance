@@ -1,6 +1,12 @@
 const { expect } = require("chai");
 const { ethers } = require("hardhat");
 
+/**
+ * @title TokenVesting Test Suite
+ * @notice Tests for the TokenVesting contract including schedule creation,
+ * releasing, revoking, withdrawing, edge cases, and access control
+ */
+
 describe("TokenVesting", function () {
     let Token, token;
     let Vesting, vesting;
@@ -33,6 +39,7 @@ describe("TokenVesting", function () {
         await vesting.grantRole(ADMIN_ROLE, admin.address);
     });
 
+    // @notice Verifies admin can create a vesting schedule and it stores correct data
     it("should allow admin to create vesting schedule", async function () {
         const start = Math.floor(Date.now() / 1000);
         const cliff = 60; // 1 min
@@ -51,6 +58,7 @@ describe("TokenVesting", function () {
         expect(schedule.released).to.equal(0);
     });
 
+    // @notice Verifies non-admin cannot create a vesting schedule
     it("should fail if non-admin tries to create vesting", async function () {
         const start = Math.floor(Date.now() / 1000);
         await expect(
@@ -58,6 +66,20 @@ describe("TokenVesting", function () {
         ).to.be.revertedWith(
             `AccessControl: account ${bob.address.toLowerCase()} is missing role ${await vesting.ADMIN_ROLE()}`
         );
+    });
+
+    // @notice Verifies that a zero address cannot be set as beneficiary
+    it("should revert when creating vesting with zero address beneficiary", async function () {
+        const start = Math.floor(Date.now() / 1000);
+        await expect(
+            vesting.connect(admin).createVestingSchedule(
+                ethers.constants.AddressZero,
+                ethers.utils.parseEther("100"),
+                start,
+                10,
+                100
+            )
+        ).to.be.revertedWith("Beneficiary cannot be zero address");
     });
 
     describe("Vesting release functionality", function () {
@@ -77,11 +99,13 @@ describe("TokenVesting", function () {
             scheduleId = await vesting.computeVestingIdForAddressAndIndex(alice.address, 0);
         });
     
+        // @notice Verifies tokens cannot be released before the cliff period ends
         it("should not allow release before cliff", async function () {
             await expect(vesting.connect(alice).release(scheduleId))
                 .to.be.revertedWith("No tokens available");
         });
     
+        // @notice Verifies correct partial release amount is claimable after cliff
         it("should allow partial release after cliff", async function () {
             // Move blockchain time to exactly the cliff
             await ethers.provider.send("evm_setNextBlockTimestamp", [start + cliff]);
@@ -112,6 +136,7 @@ describe("TokenVesting", function () {
             expect(updatedSchedule.released.sub(expectedReleasable).abs()).to.be.lte(tolerance);
         });
     
+        // @notice Verifies all tokens are releasable after full vesting duration
         it("should release all tokens after full duration", async function () {
             // Move blockchain time past full vesting
             await ethers.provider.send("evm_setNextBlockTimestamp", [start + duration]);
@@ -147,6 +172,7 @@ describe("TokenVesting", function () {
             scheduleId = await vesting.computeVestingIdForAddressAndIndex(alice.address, 0);
         });
     
+        // @notice Verifies admin can revoke a schedule and unvested tokens are returned
         it("should allow admin to revoke a vesting schedule", async function () {
             // Move time past cliff so some tokens are vested
             const latestBlock = await ethers.provider.getBlock("latest");
@@ -167,12 +193,14 @@ describe("TokenVesting", function () {
             expect(scheduleAfter.revoked).to.be.true;
         });
     
+        // @notice Verifies non-admin cannot revoke a vesting schedule
         it("should not allow non-admin to revoke", async function () {
             await expect(vesting.connect(bob).revoke(scheduleId)).to.be.revertedWith(
                 `AccessControl: account ${bob.address.toLowerCase()} is missing role ${await vesting.ADMIN_ROLE()}`
             );
         });
     
+        // @notice Verifies beneficiary can still claim vested tokens after revocation
         it("should allow beneficiary to release vested tokens even after revoke", async function () {
             // Move blockchain time past cliff
             const latestBlock = await ethers.provider.getBlock("latest");
@@ -201,6 +229,8 @@ describe("TokenVesting", function () {
     });
 
     describe("Withdraw functionality", function () {
+        
+        // @notice Verifies admin can withdraw tokens not locked in any schedule
         it("should allow admin to withdraw unallocated tokens", async function () {
             // Get initial contract balance
             const initialBalance = await token.balanceOf(vesting.address);
@@ -220,6 +250,7 @@ describe("TokenVesting", function () {
             expect(finalBalance).to.equal(initialBalance.sub(withdrawable));
         });
     
+        // @notice Verifies non-admin cannot withdraw tokens from the contract
         it("should not allow non-admin to withdraw", async function () {
             const withdrawable = await vesting.getWithdrawableAmount();
             await expect(
@@ -229,6 +260,7 @@ describe("TokenVesting", function () {
             );
         });
     
+        // @notice Verifies withdrawal reverts when amount exceeds free balance
         it("should not allow withdrawing more than available", async function () {
             const withdrawable = await vesting.getWithdrawableAmount();
             const tooMuch = withdrawable.add(ethers.utils.parseEther("1"));
@@ -266,6 +298,7 @@ describe("TokenVesting", function () {
             await vesting.grantRole(ADMIN_ROLE, admin.address);
         });
 
+        // @notice Verifies schedule creation reverts with zero token amount
         it("should revert when creating vesting with zero amount", async function () {
             const start = Math.floor(Date.now() / 1000);
             await expect(
@@ -273,6 +306,7 @@ describe("TokenVesting", function () {
             ).to.be.revertedWith("Amount must be greater than 0");
         });
 
+        // @notice Verifies schedule creation reverts when cliff exceeds duration
         it("should revert when cliff > duration", async function () {
             const start = Math.floor(Date.now() / 1000);
             await expect(
@@ -280,6 +314,7 @@ describe("TokenVesting", function () {
             ).to.be.revertedWith("Cliff longer than duration");
         });
 
+        // @notice Verifies multiple schedules for the same beneficiary get unique IDs
         it("should allow multiple vestings for same beneficiary independently", async function () {
             const start = Math.floor(Date.now() / 1000);
             await vesting.connect(admin).createVestingSchedule(alice.address, ethers.utils.parseEther("100"), start, 10, 100);
@@ -291,6 +326,7 @@ describe("TokenVesting", function () {
             expect(id1).to.not.equal(id2);
         });
 
+        // @notice Verifies zero tokens are releasable before vesting start time
         it("should return 0 releasable if before start", async function () {
             const latestBlock = await ethers.provider.getBlock("latest");
             const start = latestBlock.timestamp + 1000; // 1000 seconds in the future
@@ -301,6 +337,7 @@ describe("TokenVesting", function () {
             expect(releasable).to.equal(0);
         });
 
+        // @notice Verifies immediate revocation blocks all releases when cliff not reached
         it("should allow revoke immediately after creation, beneficiary can release 0", async function () {
 
             const latestBlock = await ethers.provider.getBlock("latest");
@@ -336,6 +373,7 @@ describe("TokenVesting", function () {
             ).to.be.revertedWith("No tokens available");
         });
         
+        // @notice Verifies beneficiary can claim remaining vested tokens after partial release and revoke
         it("should allow revoke after partial release, beneficiary can release vested amount", async function () {
 
             const latestBlock = await ethers.provider.getBlock("latest");
@@ -389,10 +427,12 @@ describe("TokenVesting", function () {
             }
         });
 
+        // @notice Verifies withdrawal reverts when amount exceeds contract free balance
         it("should revert withdraw if trying to withdraw more than free balance", async function () {
             await expect(vesting.connect(admin).withdraw(ethers.utils.parseEther("100000"))).to.be.revertedWith("Not enough free tokens");
         });
 
+        // @notice Verifies admin can withdraw all free tokens after a revoke frees them up
         it("should allow withdraw of available tokens after revokes", async function () {
             const start = Math.floor(Date.now() / 1000);
             await vesting.connect(admin).createVestingSchedule(bob.address, ethers.utils.parseEther("50"), start, 0, 1000);
@@ -404,5 +444,63 @@ describe("TokenVesting", function () {
             const freeAfter = await vesting.getWithdrawableAmount();
             expect(freeAfter).to.equal(0);
         });
+    });
+
+    describe("renounceRole Protection", function () {
+        
+        // @notice Verifies admin cannot renounce DEFAULT_ADMIN_ROLE to prevent permanent lockout
+        it("Admin cannot renounce DEFAULT_ADMIN_ROLE", async function () {
+            const adminRole = await vesting.DEFAULT_ADMIN_ROLE();
+            await expect(
+                vesting.connect(owner).renounceRole(adminRole, owner.address)
+            ).to.be.revertedWith("Cannot renounce admin role");
+        });
+    
+        // @notice Verifies ADMIN_ROLE can still be renounced freely
+        it("ADMIN_ROLE can still be renounced", async function () {
+            const adminRole = await vesting.ADMIN_ROLE();
+            await expect(
+                vesting.connect(admin).renounceRole(adminRole, admin.address)
+            ).to.not.be.reverted;
+    
+            expect(await vesting.hasRole(adminRole, admin.address)).to.equal(false);
+        });
+    });
+
+    describe("getVestingIdAtIndex", function () {
+        
+        // @notice Verifies getVestingIdAtIndex returns the same ID as computeVestingIdForAddressAndIndex
+        it("should return correct vesting ID for holder and index", async function () {
+            const start = Math.floor(Date.now() / 1000);
+            await vesting.connect(admin).createVestingSchedule(
+                alice.address,
+                ethers.utils.parseEther("100"),
+                start,
+                10,
+                100
+            );
+    
+            const idFromGetter = await vesting.getVestingIdAtIndex(alice.address, 0);
+            const idFromCompute = await vesting.computeVestingIdForAddressAndIndex(alice.address, 0);
+    
+            expect(idFromGetter).to.equal(idFromCompute);
+        });
+    });
+
+    // @notice Verifies holdersVestingCount starts at 0 and increments correctly with each new schedule created for a beneficiary
+    it("should correctly track holdersVestingCount", async function () {
+        const start = Math.floor(Date.now() / 1000);
+    
+        expect(await vesting.holdersVestingCount(alice.address)).to.equal(0);
+    
+        await vesting.connect(admin).createVestingSchedule(
+            alice.address, ethers.utils.parseEther("100"), start, 10, 100
+        );
+        expect(await vesting.holdersVestingCount(alice.address)).to.equal(1);
+    
+        await vesting.connect(admin).createVestingSchedule(
+            alice.address, ethers.utils.parseEther("100"), start, 10, 100
+        );
+        expect(await vesting.holdersVestingCount(alice.address)).to.equal(2);
     });
 });

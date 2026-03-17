@@ -67,9 +67,11 @@ contract SampleToken is
     }
 
     /// @notice Mint new tokens to a given address
+    /// tokens cant get sent to address(0)
     /// @param to Recipient address
     /// @param amount Number of tokens to mint
     function mint(address to, uint256 amount) public onlyRole(MINTER_ROLE) {
+        require(to != address(0), "Cannot mint to zero address");
         _mint(to, amount);
         emit TokensMinted(to, amount);
     }
@@ -79,6 +81,15 @@ contract SampleToken is
     function burn(uint256 amount) public override {
         super.burn(amount);
         emit TokensBurned(msg.sender, amount);
+    }
+
+    /// @notice Burn tokens from another account using your allowance
+    /// @param account The address to burn tokens from
+    /// @param amount Number of tokens to burn
+    /// Making sure TokensBurned event fires consistently since inherited version wouldnt emit
+    function burnFrom(address account, uint256 amount) public override {
+        super.burnFrom(account, amount);
+        emit TokensBurned(account, amount);
     }
 
     /// @dev Override _beforeTokenTransfer from ERC20 and ERC20Pausable
@@ -96,5 +107,11 @@ contract SampleToken is
         override(ERC20, ERC20Capped)
     {
         super._mint(account, amount);
+    }
+
+    /// @dev Prevents the admin from renouncing the DEFAULT_ADMIN_ROLE to avoid permanently locking the contract
+    function renounceRole(bytes32 role, address account) public override {
+        require(role != DEFAULT_ADMIN_ROLE, "Cannot renounce admin role");
+        super.renounceRole(role, account);
     }
 }

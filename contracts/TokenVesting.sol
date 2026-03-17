@@ -52,6 +52,8 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         uint256 returnedAmount
     );
 
+    /// @notice Sets the token address and grants admin roles to the deployer
+    /// @param tokenAddress The address of the ERC20 token to be vested
     constructor(address tokenAddress) {
 
         token = IERC20(tokenAddress);
@@ -60,6 +62,13 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         _grantRole(ADMIN_ROLE, msg.sender);
     }
 
+    
+    /// @notice Creates a new vesting schedule for a beneficiary
+    /// @param beneficiary The address that will receive the vested tokens
+    /// @param amount Total number of tokens to vest
+    /// @param start Timestamp when vesting begins
+    /// @param cliffDuration Time in seconds before any tokens can be released
+    /// @param duration Total time in seconds over which tokens vest
     function createVestingSchedule(
         address beneficiary,
         uint256 amount,
@@ -68,6 +77,7 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         uint64 duration
     ) external onlyRole(ADMIN_ROLE) {
 
+        require(beneficiary != address(0), "Beneficiary cannot be zero address"); // ← add this first
         require(amount > 0, "Amount must be greater than 0");
         require(cliffDuration <= duration, "Cliff longer than duration");
         require(duration > 0, "Duration must be greater than 0");
@@ -98,48 +108,61 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         emit VestingScheduleCreated(vestingId, beneficiary, amount);
     }
 
+    /// @notice Releases vested tokens to the beneficiary
+    /// @param vestingId The ID of the vesting schedule to release from
     function release(bytes32 vestingId) public nonReentrant {
 
-    VestingSchedule storage schedule = vestingSchedules[vestingId];
+        VestingSchedule storage schedule = vestingSchedules[vestingId];
 
-    require(schedule.initialized, "Invalid vesting");
-    require(
-        msg.sender == schedule.beneficiary,
-        "Only beneficiary can release"
-    );
+        require(schedule.initialized, "Invalid vesting");
+        require(
+            msg.sender == schedule.beneficiary,
+            "Only beneficiary can release"
+        );
+        require(
+            !schedule.revoked || schedule.released < schedule.totalAmount,
+            "Vesting revoked and no tokens left to claim"
+        );  
 
-    uint256 amount = computeReleasableAmount(schedule);
-    require(amount > 0, "No tokens available");
+        uint256 amount = computeReleasableAmount(schedule);
+        require(amount > 0, "No tokens available");
 
-    schedule.released += amount;
+        schedule.released += amount;
+        if (!schedule.revoked) {
+            vestingSchedulesTotalAmount -= amount;
+        }
+        
+        token.safeTransfer(schedule.beneficiary, amount);
 
-    if (!schedule.revoked) {
-        vestingSchedulesTotalAmount -= amount;
+        emit TokensReleased(vestingId, schedule.beneficiary, amount);
     }
 
-    token.safeTransfer(schedule.beneficiary, amount);
-
-    emit TokensReleased(vestingId, schedule.beneficiary, amount);
-}
-
+    
+    /// @notice Revokes a vesting schedule, returning unvested tokens to the contract
+    /// @dev Beneficiary can still claim any tokens that vested before revocation
+    /// @param vestingId The ID of the vesting schedule to revoke
     function revoke(bytes32 vestingId) external onlyRole(ADMIN_ROLE) {
-    VestingSchedule storage schedule = vestingSchedules[vestingId];
+        VestingSchedule storage schedule = vestingSchedules[vestingId];
 
-    require(schedule.initialized, "Invalid vesting");
-    require(!schedule.revoked, "Already revoked");
+        require(schedule.initialized, "Invalid vesting");
+        require(!schedule.revoked, "Already revoked");
 
-    uint256 releasable = computeReleasableAmount(schedule);
-    uint256 vestedTotal = schedule.released + releasable;
+        uint256 releasable = computeReleasableAmount(schedule);
+        uint256 vestedTotal = schedule.released + releasable;
 
-    uint256 unvested = schedule.totalAmount - vestedTotal;
+        uint256 unvested = schedule.totalAmount - vestedTotal;
 
-    vestingSchedulesTotalAmount -= unvested;
+        vestingSchedulesTotalAmount -= unvested;
 
-    schedule.revoked = true;
+        schedule.revoked = true;
 
-    emit VestingRevoked(vestingId, schedule.beneficiary, unvested);
-}
+        emit VestingRevoked(vestingId, schedule.beneficiary, unvested);
+    }
 
+    
+    /// @notice Calculates how many tokens are currently releasable for a schedule
+    /// @param schedule The vesting schedule to calculate for
+    /// @return The number of tokens currently available to release
     function computeReleasableAmount(VestingSchedule memory schedule)
         public
         view
@@ -163,6 +186,11 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         return vested - schedule.released;
     }
 
+    
+    /// @notice Computes a unique vesting schedule ID for a holder and index
+    /// @param holder The address of the beneficiary
+    /// @param index The index of the vesting schedule
+    /// @return A unique bytes32 identifier for the vesting schedule
     function computeVestingIdForAddressAndIndex(
         address holder,
         uint256 index
@@ -170,10 +198,17 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         return keccak256(abi.encodePacked(holder, index));
     }
 
+    
+    /// @notice Returns the amount of tokens not locked in any vesting schedule
+    /// @return The number of tokens available for withdrawal
     function getWithdrawableAmount() public view returns (uint256) {
         return token.balanceOf(address(this)) - vestingSchedulesTotalAmount;
     }
 
+    
+    /// @notice Returns the full details of a vesting schedule
+    /// @param vestingId The ID of the vesting schedule to retrieve
+    /// @return The VestingSchedule struct for the given ID
     function getVestingSchedule(bytes32 vestingId)
         external
         view
@@ -182,8 +217,24 @@ contract TokenVesting is AccessControl, ReentrancyGuard {
         return vestingSchedules[vestingId];
     }
 
+    /// @notice Allows admin to withdraw tokens not locked in any vesting schedule
+    /// @param amount The number of tokens to withdraw
     function withdraw(uint256 amount) external onlyRole(ADMIN_ROLE) {
         require(getWithdrawableAmount() >= amount, "Not enough free tokens");
         token.safeTransfer(msg.sender, amount);
+    }
+
+    /// @notice Returns the vesting schedule ID for a holder at a given index
+    /// @param holder The address of the beneficiary
+    /// @param index The index of the vesting schedule
+    function getVestingIdAtIndex(address holder, uint256 index)
+        public pure returns (bytes32) {
+        return computeVestingIdForAddressAndIndex(holder, index);
+    }
+
+    /// @dev Prevents the admin from renouncing DEFAULT_ADMIN_ROLE to avoid permanently locking the contract
+    function renounceRole(bytes32 role, address account) public override {
+        require(role != DEFAULT_ADMIN_ROLE, "Cannot renounce admin role");
+        super.renounceRole(role, account);
     }
 }
