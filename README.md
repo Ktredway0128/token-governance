@@ -191,11 +191,18 @@ ALCHEMY_API_URL=YOUR_SEPOLIA_RPC_URL
 
 DEPLOYER_PRIVATE_KEY=YOUR_PRIVATE_KEY
 
+ETHERSCAN_API_KEY=YOUR_ETHERSCAN_API_KEY
+
 These values allow Hardhat to:
 
 Connect to the Sepolia network
 Sign transactions using the deployer's wallet
 
+
+## DEPLOYMENT
+
+This contract requires the ERC-20 token to be deployed first.
+The token address is passed into the vesting contract constructor.
 
 ## DEPLOYMENT
 
@@ -219,6 +226,15 @@ Creates the contract factory
 Deploys the vesting contract with the token address
 Waits for confirmation
 Outputs the deployed contract address
+
+### SEPOLIA TESTNET DEPLOYMENT
+
+| Contract | Address | Etherscan |
+|----------|---------|-----------|
+| SampleToken | `0x036150039c33b1645080a9c913f96D4c65ccca48` | [View on Etherscan](https://sepolia.etherscan.io/address/0x036150039c33b1645080a9c913f96D4c65ccca48#code) |
+| TokenVesting | `0x2922Ff891f0EFC440765AD53fb85482694783781` | [View on Etherscan](https://sepolia.etherscan.io/address/0x2922Ff891f0EFC440765AD53fb85482694783781#code) |
+
+Deployed: 2026-03-19
 
 
 ## SECURITY PRACTICES
