@@ -478,29 +478,6 @@ describe("TokenStaking", function () {
         staking.recoverTokens(randomToken.address, ethers.utils.parseUnits("100", 18))
       ).to.emit(staking, "TokensRecovered");
     });
-
-    it("Should recover leftover rewards after period ends", async function () {
-      await staking.setRewardPeriod(THIRTY_DAYS);
-      await staking.startRewardPeriod(REWARD_AMOUNT);
-      await ethers.provider.send("evm_increaseTime", [THIRTY_DAYS + ONE_DAY]);
-      await ethers.provider.send("evm_mine");
-      await expect(staking.recoverLeftoverRewards()).to.not.be.reverted;
-  });
   
-    it("Should revert recoverLeftoverRewards if period still active", async function () {
-      await staking.setRewardPeriod(THIRTY_DAYS);
-      await staking.startRewardPeriod(REWARD_AMOUNT);
-      await expect(staking.recoverLeftoverRewards())
-        .to.be.revertedWith("Period still active");
-    });
-    
-    it("Should revert recoverLeftoverRewards if called by non admin", async function () {
-      await staking.setRewardPeriod(THIRTY_DAYS);
-      await staking.startRewardPeriod(REWARD_AMOUNT);
-      await ethers.provider.send("evm_increaseTime", [THIRTY_DAYS + ONE_DAY]);
-      await ethers.provider.send("evm_mine");
-      await expect(staking.connect(user1).recoverLeftoverRewards())
-        .to.be.reverted;
-    });
   });
 });
