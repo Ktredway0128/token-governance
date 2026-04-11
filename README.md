@@ -1,4 +1,4 @@
-# ERC-20 TOKEN STAKING CONTRACT
+# TOKEN STAKING CONTRACT
 
 [![Verified on Etherscan](https://img.shields.io/badge/Etherscan-Verified-brightgreen)](https://sepolia.etherscan.io/address/0x0823D964ECC9ed0975761F0D08Ac34F21B936D04#code)
 
@@ -195,9 +195,9 @@ pendingRewards         – Unclaimed reward balance per address
 
 ### CLONE THE REPOSITORY:
 
-git clone https://github.com/Ktredway0128/erc20-token-staking
+git clone https://github.com/Ktredway0128/token-staking
 
-cd erc20-token-staking
+cd token-staking
 
 ### INSTALL DEPENDENCIES:
 
