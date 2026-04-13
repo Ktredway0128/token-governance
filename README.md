@@ -1,6 +1,6 @@
-# TOKEN STAKING CONTRACT
+# TOKEN GOVERNANCE CONTRACT
 
-[![Verified on Etherscan](https://img.shields.io/badge/Etherscan-Verified-brightgreen)](https://sepolia.etherscan.io/address/0x0823D964ECC9ed0975761F0D08Ac34F21B936D04#code)
+[![Verified on Etherscan](https://img.shields.io/badge/Etherscan-Verified-brightgreen)](https://sepolia.etherscan.io/address/TO_BE_UPDATED#code)
 
 ![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)
 ![Solidity](https://img.shields.io/badge/Solidity-0.8.19-blue)
@@ -8,119 +8,132 @@
 
 Built by [Tredway Development](https://kyle-tredway-portfolio.netlify.app/) — professional Solidity smart contract packages for Web3 companies.
 
-A secure and production-ready ERC-20 token staking contract built with Solidity, OpenZeppelin, and Hardhat.
+A secure and production-ready on-chain governance system built with Solidity, OpenZeppelin Governor framework, and Hardhat.
 
 > ⚠️ This contract has not been professionally audited. A full security audit is strongly recommended before any mainnet deployment.
 
 
-This project demonstrates a complete staking rewards system including:
+This project demonstrates a complete token governance system including:
 
 Smart contract development
 Automated testing
 Deployment scripting
-Fixed duration reward periods
-Real-time reward accumulation
+Proposal creation and lifecycle management
+Token-weighted voting with delegation
+Timelock-controlled execution
 Role-based administrative permissions
 Security best practices
 
-This repository represents the fourth package in a Web3 infrastructure suite, building on top of the ERC-20 Token Launch, Token Vesting, and Merkle Airdrop contracts to complete a full token ecosystem.
+This repository represents the sixth and final package in a Web3 infrastructure suite, building on top of the ERC-20 Token Launch, Token Vesting, Merkle Airdrop, Token Staking, and Token Crowdsale contracts to complete a full token ecosystem.
 
 
 ## PROJECT GOALS
 
-The purpose of this project is to demonstrate how a modern staking rewards system should be designed for real-world use.
+The purpose of this project is to demonstrate how a modern on-chain governance system should be designed for real-world use.
 
-The system includes common features required by token staking protocols:
+The system includes common features required by token governance protocols:
 
-Fixed duration reward periods with a configurable duration
-Per-second reward rate calculation based on total pool funding
-Real-time reward accumulation using the Synthetix rewards model
-Free unstaking at any time regardless of reward period status
+Proposal creation with configurable thresholds
+Token-weighted voting with For, Against, and Abstain options
+Configurable voting delay and voting period
+Quorum enforcement as a percentage of total token supply
+Timelock-controlled execution with a mandatory delay
 Role-based administrative permissions
-Emergency pause capability
-Event logging for transparency
+Full proposal lifecycle from Pending to Executed
 
-These patterns are widely used in production DeFi applications.
+These patterns are widely used in production DeFi governance applications.
 
 
 ## SMART CONTRACT FEATURES
 
-### TOKEN STAKING
+### TOKEN GOVERNANCE
 
-SAME TOKEN FOR STAKING AND REWARDS
+OPENZEPPELIN GOVERNOR FRAMEWORK
 
-The contract supports using the same ERC-20 token for both staking and reward distribution.
-This is a deliberate design choice that simplifies token economics for projects with a single token.
+The contract is built on the OpenZeppelin Governor framework — the industry standard
+for on-chain governance used by Uniswap, Compound, and Aave.
+This provides a battle-tested foundation with well-audited security properties.
 
-FIXED DURATION REWARD PERIODS
+PROPOSAL CREATION
 
-Admins configure a reward period duration in seconds using setRewardPeriod.
-Admins then fund the reward pool and start distribution using startRewardPeriod.
-The reward rate is calculated as total reward divided by period duration.
-A new period cannot be started until the current one has finished.
-The period duration cannot be changed while a period is active.
+Any token holder meeting the proposal threshold can create a governance proposal.
+Proposals specify target contracts, values, calldata, and a human-readable description.
+Each proposal receives a unique ID derived from its contents.
+Every proposal emits a ProposalCreatedWithDescription event for off-chain indexing.
 
-REAL-TIME REWARD ACCUMULATION
+VOTING DELAY
 
-Rewards accumulate on a per-second basis using the rewardPerToken model.
-Each staker earns proportionally to their share of the total staked supply.
-Rewards accumulate indefinitely after the period ends and never expire.
-Precision loss of approximately 2-3 tokens per 10,000 is permanently locked by design.
+After a proposal is created it enters a Pending state for the configured voting delay.
+The voting delay is set to 1 day (7,200 blocks) by default.
+This gives token holders time to review proposals before voting begins.
 
-STAKING
+VOTING PERIOD
 
-Users can stake tokens at any time during an active reward period.
-Staking is blocked before a reward period starts and when the contract is paused.
-Every stake emits a Staked event.
+Once the voting delay passes the proposal becomes Active and voting opens.
+The voting period is set to 1 week (50,400 blocks) by default.
+Token holders can cast For, Against, or Abstain votes.
+Voting power is based on token balance at the block the proposal was created.
+Every vote emits a GovernorVoteCast event.
 
-FREE UNSTAKING
+VOTE WITH REASON
 
-Users can unstake any amount at any time regardless of reward period status.
-Unstaking is never blocked — only staking is affected by pause and period state.
-Every unstake emits an Unstaked event.
+Token holders can cast votes with an optional text reason explaining their position.
+This promotes transparent and accountable governance participation.
 
-CLAIM REWARDS
+QUORUM ENFORCEMENT
 
-Users can claim accumulated rewards at any time using claimReward.
-Every claim emits a RewardClaimed event and updates the totalClaimed tracker.
+A minimum of 4% of the total token supply must participate for a proposal to pass.
+If quorum is not reached the proposal moves to Defeated regardless of vote outcome.
 
-UNSTAKE AND CLAIM
+PROPOSAL THRESHOLD
 
-Users can exit their full position in a single transaction using unstakeAndClaim.
-This unstakes the full balance and claims all pending rewards atomically.
+A minimum of 1,000 tokens is required to create a governance proposal.
+This prevents spam proposals from accounts with negligible token holdings.
+
+TIMELOCK EXECUTION
+
+Passed proposals are queued in a TimelockController before execution.
+The timelock enforces a mandatory 2 day delay between queue and execution.
+This gives the community time to react to passed proposals before they take effect.
+The TimelockController is the ultimate executor of all governance actions.
+
+TOKEN DELEGATION
+
+Token holders must delegate their voting power before participating in governance.
+Holders can delegate to themselves using selfDelegate or to any other address.
+Voting power is tracked using ERC20Votes checkpointing for snapshot accuracy.
+
+PROPOSAL STATES
+
+Proposals move through the following states during their lifecycle:
+
+STATE        DESCRIPTION
+
+Pending      Proposal created, waiting for voting delay to pass
+Active       Voting is open
+Canceled     Proposal was canceled by the proposer
+Defeated     Quorum not reached or Against votes won
+Succeeded    Quorum reached and For votes won
+Queued       Proposal queued in the timelock
+Expired      Timelock window passed without execution
+Executed     Proposal successfully executed on-chain
 
 ROLE-BASED PERMISSIONS
 
-Administrative actions are protected using OpenZeppelin's AccessControl.
+The TimelockController uses OpenZeppelin's AccessControl for role management.
 Roles include:
 
 ROLE                DESCRIPTION
 
-DEFAULT_ADMIN_ROLE  Can manage roles
-ADMIN_ROLE          Can manage reward periods, pause, and recover tokens
-
-EMERGENCY PAUSE
-
-Authorized accounts with the ADMIN_ROLE can pause all staking activity.
-Unstaking and reward claiming remain available while paused.
-Staking resumes when the contract is unpaused.
-
-TOKEN RECOVERY
-
-Admins can recover accidentally sent tokens using recoverTokens.
-The staking token and reward token cannot be recovered by design.
-Every recovery emits a TokensRecovered event.
-
-ADMIN ROLE PROTECTION
-
-The contract prevents the admin from accidentally renouncing the DEFAULT_ADMIN_ROLE.
-This ensures the contract can never be permanently locked without an administrator.
+PROPOSER_ROLE       Granted to the Governor contract — only Governor can queue
+EXECUTOR_ROLE       Open to everyone — anyone can trigger execution
+TIMELOCK_ADMIN_ROLE Revoked from deployer after setup for full decentralization
 
 EVENT TRACKING
 
 The contract emits events for all important actions:
 
-Staked, Unstaked, RewardClaimed, RewardPeriodStarted, RewardPeriodSet, TokensRecovered
+ProposalCreatedWithDescription, GovernorVoteCast, ProposalExecutedWithId, ProposalCanceledWithId
 
 
 ## TECHNOLOGY STACK
@@ -145,59 +158,60 @@ Sepolia Test Network – Deployment environment
 ## PROJECT STRUCTURE
 
 contracts/
-    TokenStaking.sol
+    SampleToken.sol
+    TokenGovernance.sol
 
 scripts/
-    deploy-staking.js
+    deploy-governance.js
 
 test/
-    TokenStaking.test.js
+    SampleToken.test.js
+    TokenGovernance.test.js
 
 hardhat.config.js
 .env
 
 CONTRACTS
 
-Contains the staking contract implementation.
+Contains the ERC20Votes governance token and the TokenGovernance governor implementation.
 
 SCRIPTS
 
-Contains the deployment script for the staking contract.
+Contains the deployment script for all three governance contracts — SampleToken, TimelockController, and TokenGovernance.
 
 TESTS
 
-Contains 74 automated tests verifying all major contract behaviors.
+Contains 68 automated tests verifying all major contract behaviors across both contracts.
 
 
 ## SMART CONTRACT ARCHITECTURE
 
-The TokenStaking contract extends the following OpenZeppelin modules:
+The TokenGovernance contract extends the following OpenZeppelin Governor modules:
 
-ReentrancyGuard, AccessControl, Pausable, SafeERC20, IERC20
+Governor, GovernorSettings, GovernorCountingSimple, GovernorVotes, GovernorVotesQuorumFraction, GovernorTimelockControl
 
-This modular architecture provides strong security and reusable functionality while keeping the contract easy to audit.
+The SampleToken contract extends the following OpenZeppelin modules:
 
-Key state variables:
+ERC20, ERC20Capped, ERC20Burnable, ERC20Pausable, ERC20Permit, ERC20Votes, AccessControl
 
-rewardRate             – Tokens distributed per second across all stakers
-rewardPeriod           – Configured duration of each reward period in seconds
-periodFinish           – Timestamp when the current reward period ends
-lastUpdateTime         – Last time the reward state was updated
-rewardPerTokenStored   – Accumulated reward per token up to lastUpdateTime
-totalSupply            – Total tokens currently staked in the contract
-totalClaimed           – Cumulative rewards claimed across all users
-balanceOf              – Staked balance per address
-userRewardPerTokenPaid – Snapshot of rewardPerToken at last user update
-pendingRewards         – Unclaimed reward balance per address
+This modular architecture provides strong security and reusable functionality while keeping the contracts easy to audit.
+
+Key governance parameters:
+
+votingDelay          – 7,200 blocks (~1 day) before voting opens after proposal creation
+votingPeriod         – 50,400 blocks (~1 week) that voting remains open
+proposalThreshold    – 1,000 tokens minimum to create a proposal
+quorumFraction       – 4% of total supply must participate for a proposal to pass
+timelockDelay        – 172,800 seconds (2 days) between queue and execution
 
 
 ## INSTALLATION
 
 ### CLONE THE REPOSITORY:
 
-git clone https://github.com/Ktredway0128/token-staking
+git clone https://github.com/Ktredway0128/token-governance
 
-cd token-staking
+cd token-governance
 
 ### INSTALL DEPENDENCIES:
 
@@ -213,12 +227,13 @@ npx hardhat test
 
 ### THE TESTS VALIDATE:
 
-Staking, unstaking, and reward accumulation
-Reward period configuration and lifecycle
-Pause and unpause behavior
-Admin role protection and access control
-Token recovery functionality
-Edge cases including zero balances and period boundaries
+Proposal creation and lifecycle management
+Voting delay and voting period enforcement
+For, Against, and Abstain vote casting
+Quorum enforcement and proposal outcomes
+Timelock queue and execution flow
+Full end-to-end governance lifecycle
+Edge cases including insufficient tokens and duplicate votes
 
 
 ## ENVIRONMENT SETUP
@@ -239,81 +254,97 @@ Sign transactions using the deployer's wallet
 
 ## DEPLOYMENT
 
-### STEP 1 - Deploy the staking contract:
+### STEP 1 - Deploy all three contracts:
 
-npx hardhat run scripts/deploy-staking.js --network sepolia
+npx hardhat run scripts/deploy-governance.js --network sepolia
 
-The deployment script requires the staking token address, reward token address, and admin address.
-These can be the same token address if using a single token for both staking and rewards.
+The deployment script deploys SampleToken, TimelockController, and TokenGovernance
+in the correct order and automatically configures all required roles.
 
-### STEP 2 - Set the reward period duration via the admin panel or script:
+### STEP 2 - Delegate voting power:
 
-Call setRewardPeriod with the duration in seconds. Example for 30 days:
+Token holders must call delegate or selfDelegate before their tokens count as voting power.
+This is required by the ERC20Votes standard and must be done before any proposal is created.
 
-30 * 86400 = 2,592,000 seconds
+### STEP 3 - Create a proposal:
 
-### STEP 3 - Fund the reward pool and start the period:
+Call propose with target contracts, values, calldata, and a description.
+The caller must hold at least 1,000 tokens to meet the proposal threshold.
 
-Call startRewardPeriod with the total reward amount.
-The contract will pull tokens from the admin wallet automatically.
-Approve the contract to spend the reward tokens before calling this function.
+### STEP 4 - Vote on the proposal:
+
+After the 1 day voting delay the proposal becomes Active.
+Token holders call castVote with 0 (Against), 1 (For), or 2 (Abstain).
+
+### STEP 5 - Queue the proposal:
+
+After the 1 week voting period if the proposal Succeeded call queue.
+This submits the proposal to the TimelockController.
+
+### STEP 6 - Execute the proposal:
+
+After the 2 day timelock delay call execute.
+The proposal actions are executed on-chain automatically.
 
 ### SEPOLIA TESTNET DEPLOYMENT
 
 | Contract | Address | Etherscan |
 |----------|---------|-----------|
-| SampleToken | `0x036150039c33b1645080a9c913f96D4c65ccca48` | [View on Etherscan](https://sepolia.etherscan.io/address/0x036150039c33b1645080a9c913f96D4c65ccca48#code) |
+| SampleToken | `TO_BE_UPDATED` | [View on Etherscan](https://sepolia.etherscan.io/address/TO_BE_UPDATED#code) |
+| TimelockController | `TO_BE_UPDATED` | [View on Etherscan](https://sepolia.etherscan.io/address/TO_BE_UPDATED#code) |
+| TokenGovernance | `TO_BE_UPDATED` | [View on Etherscan](https://sepolia.etherscan.io/address/TO_BE_UPDATED#code) |
 
-| TokenStaking | `0x0823D964ECC9ed0975761F0D08Ac34F21B936D04` | [View on Etherscan](https://sepolia.etherscan.io/address/0x0823D964ECC9ed0975761F0D08Ac34F21B936D04#code) |
-
-Deployed: 2026-04-06
+Deployed: TO_BE_UPDATED
 
 
 ## EXAMPLE TOKEN CONFIGURATION
 
 Token Name: Sample Token
 Token Symbol: STK
-Reward Period: 30 days
-Total Period Rewards: 10,000 STK
-
-Example reward distribution:
-
-Reward Rate:     0.00386 STK per second
-Total Stakers:   Variable — rewards split proportionally by stake size
-Unclaimed Rewards accumulate indefinitely and never expire
+Token Cap: 1,000,000 STK
+Initial Supply: 100,000 STK
+Proposal Threshold: 1,000 STK
+Quorum: 4% of total supply
+Voting Delay: 1 day
+Voting Period: 1 week
+Timelock Delay: 2 days
 
 
 ## DESIGN DECISIONS
 
-SAME TOKEN ARCHITECTURE
+ERC20VOTES TOKEN
 
-When the staking and reward token are the same, raw contract balance includes both
-staked principal and the reward pool. Reward tracking is handled entirely through
-rewardRate, rewardPerTokenStored, and totalClaimed rather than relying on
-token.balanceOf(address(this)). This is an intentional design choice.
+Standard ERC20 tokens cannot be used for governance because they lack voting power
+checkpointing. SampleToken extends ERC20Votes which snapshots balances at specific
+blocks. This prevents voting power manipulation between proposal creation and vote casting.
 
-PRECISION LOSS
+DELEGATION REQUIREMENT
 
-Due to integer division in Solidity, approximately 2-3 tokens per 10,000 are permanently
-locked in the contract at the end of each reward period. This is a known and accepted
-tradeoff of the Synthetix rewards model. No recoverLeftoverRewards function is included
-by design — these tokens are intentionally burned.
+Token holders must explicitly delegate their voting power before voting.
+This is a deliberate design choice from the ERC20Votes standard — it prevents
+accidental governance participation and allows holders to delegate to representatives.
 
-FREE UNSTAKING
+TIMELOCK DECENTRALIZATION
 
-Unstaking is never blocked regardless of pause state or reward period status.
-This protects stakers and ensures they always maintain access to their principal.
+After deployment the TIMELOCK_ADMIN_ROLE is revoked from the deployer.
+This ensures no single account can bypass the governance process.
+All changes to the system must go through a successful governance vote.
+
+OPEN EXECUTION
+
+The EXECUTOR_ROLE is granted to address(0) meaning anyone can trigger execution
+of a passed and queued proposal after the timelock delay. This ensures proposals
+cannot be censored or blocked by a single executor.
 
 
 ## SECURITY PRACTICES
 
 The contract uses well-established patterns from OpenZeppelin including:
 
-Role-based permissions
-Emergency pause mechanism
-ReentrancyGuard on all staking, unstaking, and claiming functions
-SafeERC20 for safe token transfers
-Protected admin role renunciation
+Battle-tested Governor framework used by major DeFi protocols
+TimelockController for mandatory execution delay
+ERC20Votes checkpointing to prevent flash loan voting attacks
+Role-based permissions with full decentralization after deployment
 Audited contract libraries
 
 These are common practices used in production smart contracts.
@@ -321,27 +352,27 @@ These are common practices used in production smart contracts.
 
 ## EXAMPLE USE CASES
 
-This staking contract can support many types of projects:
+This governance contract can support many types of projects:
 
-Protocol token staking with fixed reward periods
-Liquidity mining programs
-Community incentive distributions
-DAO participation rewards
-Game economy staking mechanics
-DeFi yield programs
+Protocol parameter updates via token holder vote
+Treasury fund allocation and spending proposals
+Smart contract upgrade approvals
+Community grant programs
+DAO operational decisions
+Fee structure changes
 
 
 ## FUTURE ENHANCEMENTS
 
-This project serves as the fourth layer in a larger Web3 infrastructure package.
+This project serves as the sixth and final layer in a larger Web3 infrastructure package.
 
 Possible upgrades include:
 
-Governance DAO voting contract
-Treasury management contract
-Upgradeable proxy contracts
-Multiple reward token support
-Variable reward rate adjustment
+Upgradeable proxy contracts for post-deployment improvements
+Multi-sig guardian for emergency proposal cancellation
+On-chain treasury management integration
+Cross-chain governance bridging
+Gasless voting via EIP-712 signatures
 
 
 ## AUTHOR
